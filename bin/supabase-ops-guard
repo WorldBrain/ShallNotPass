@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name="supabase-ops-guard-helper"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ -n "${SOG_HELPER:-}" && -x "${SOG_HELPER}" ]]; then
+  exec "${SOG_HELPER}" "$@"
+fi
+
+if [[ -x "/usr/local/libexec/supabase-ops-guard/${name}" ]]; then
+  exec "/usr/local/libexec/supabase-ops-guard/${name}" "$@"
+fi
+
+if [[ -x "${root}/.build/release/${name}" ]]; then
+  exec "${root}/.build/release/${name}" "$@"
+fi
+
+printf '%s\n' "Supabase Ops Guard is not installed." >&2
+printf '%s\n' "Run ./install.sh from the project checkout, or build with: swift build -c release" >&2
+exit 1
