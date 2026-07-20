@@ -4,6 +4,14 @@ A small macOS approval and credential boundary for agent-requested commands.
 
 The root-owned Swift helper does not understand Supabase migrations, SQL, linking, deployment state, or provider workflows. The agent remains responsible for inspecting state and constructing the exact command. The guard displays that request, asks the device owner to approve it, substitutes explicitly requested Keychain credentials internally, and executes the approved argument vector without a shell.
 
+## Intent and limitations
+
+ShallNotPass is a deliberately narrow boundary for agent-requested access to a Supabase instance. Its intent is to keep an agent from receiving unmediated destructive capability: selected destructive operations are rejected outright, while mutating Supabase commands must be shown to—and approved by—the macOS device owner through system authentication (a password or Touch ID, when available).
+
+The policy can be extended for a particular environment by adapting `HardDenialPolicy`: add forbidden executables, Supabase arguments, SQL patterns, or tightly defined read-only commands that match the environment's threat model. Treat every such change as a security-sensitive policy decision and review the resulting command surface carefully.
+
+This project is intended as a small, inspectable example and source of inspiration for similar approval boundaries. It is not a definitive security implementation, a complete database policy engine, or a substitute for least-privilege credentials, backups, access controls, monitoring, and independent security review.
+
 ## Build from source
 
 Requirements:
@@ -100,6 +108,33 @@ The following requests are rejected before an authentication prompt and cannot b
 - shells, language interpreters, and direct SQL clients that could conceal those operations.
 
 Database resets and table deletion must be performed manually through the Supabase web application.
+
+## Extend the blocklists and approval policy
+
+The guard's policy is compiled into `HardDenialPolicy` in `Sources/SupabaseOpsGuard/main.swift`. Start by writing down the operation to prevent, the executable and arguments an agent could use to request it, and any alternate forms that could bypass a narrow match. Keep the policy specific: an overly broad rule can block legitimate operational work, while an incomplete rule can leave a bypass.
+
+Choose the policy surface that matches the request:
+
+- `forbiddenExecutables` rejects an executable before any approval prompt. Add shells, interpreters, database clients, or other tools that could hide an operation the approval screen should not permit.
+- `forbiddenSupabaseArguments` rejects matching Supabase CLI arguments regardless of their order. Add a command argument here when that operation must never be approved through the guard.
+- `forbiddenSQLPatterns` rejects destructive SQL forms after SQL comments are removed. Add a carefully scoped, case-insensitive regular expression when a direct SQL operation must never be approved.
+- `readOnlySupabaseCommands` defines the small set of Supabase argument prefixes allowed without device-owner authentication. Add an entry only after establishing that the complete command family cannot mutate state or request a Keychain credential. Adding a prefix here removes the approval prompt for matching commands.
+
+After changing policy, build the helper and inspect the behavior against a non-production project before installing it for real use:
+
+```bash
+swift build -c release
+./bin/supabase-ops-guard help
+```
+
+When the changed policy is ready to install, sign and install the rebuilt helper using the normal process:
+
+```bash
+export SOG_CODESIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+./install.sh
+```
+
+Do not rely on the guard alone to make a destructive action safe. Keep production credentials least-privileged, retain backups and recovery procedures, and have a person review the exact requested command before approving it.
 
 ## Boundary
 
