@@ -16,7 +16,7 @@ Requirements:
 Clone the repository, then build the release helper:
 
 ```bash
-git clone https://github.com/blackforestboi/guard.git ShallNotPass
+git clone https://github.com/WorldBrain/ShallNotPass.git
 cd ShallNotPass
 swift build -c release
 ./bin/supabase-ops-guard help
